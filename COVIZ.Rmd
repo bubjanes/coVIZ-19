@@ -1,0 +1,130 @@
+---
+output:
+  pdf_document:
+    toc: no
+    toc_depth: '3'
+  html_document:
+    title: "COVIZ: COVID_19 in Latin America"
+    author: "Brandon Janes"
+    date: "3/22/2020"
+    theme: cerulean
+    highlight: haddock
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+---
+# COVIZ: COVID-19 in Latin America
+By Brandon Janes
+```{r import libraries,message=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(data.table)
+```
+# **Upload Data**
+Data from repository for the 2019 Novel Coronavirus Visual Dashboard operated by the [**Johns Hopkins University Center for Systems Science and Engineering**](https://github.com/CSSEGISandData/COVID-19) (JHU CSSE). Also, countries and continents from [**dbouquin**](https://github.com/dbouquin/IS_608/blob/master/NanosatDB_munging/Countries-Continents.csv).
+```{r, import data}
+confirmed <- read.csv("./data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv", stringsAsFactors = FALSE)
+region <- read.csv("./data/country-continent.csv", stringsAsFactors = FALSE)
+```
+```{r data wrangling, include=FALSE}
+confirm <- select(confirmed, -(Lat:Long))
+matriz <- select(confirm, -(Province.State))
+matriz[-1] = as.numeric(unlist(matriz[-1]))
+matriz[is.na(matriz)] <- 0
+# group by
+df <- matriz %>% group_by(Country.Region) %>% summarise_all(funs(sum))
+# transpose
+transpose_df <- as.data.frame(t(df))
+# make country names column headers with custom function
+header.true <- function(df) {
+  names(df) <- as.character(unlist(df[1,]))
+  df[-1,]
+}
+transpose_header <- header.true(transpose_df)
+# CHANGED filter for the countries we want to see
+#new_df <- transpose_header %>% select(Argentina,Brazil,Chile,US)
+# make the index the first row
+d<-setDT(transpose_header, keep.rownames = TRUE)[]
+# stack or melt the matrix
+mdata <- melt(d, id=c("rn"))
+# rename columns
+df2 <- rename(mdata, date = rn,country = variable, confirmed = value )
+# clean for dates
+df2$date = sub('X', '', df2$date)
+# set data types
+df2$date = as.Date(df2$date, format='%m.%d.%y')
+df2$confirmed = as.numeric(as.character((df2$confirmed)))
+df2$country = as.character(df2$country)
+# create a new column continent\
+region2 <- rename(region, country = Country, continent = Continent)
+full_df <- merge(df2, region2, by = c("country") , all.x = TRUE)
+#######################
+# add together by region
+```
+
+```{r, include=FALSE}
+tot<-full_df %>% filter(date>="2020-03-23")
+region_tot<-tot %>% group_by(continent,date) %>% summarize(totals=sum(confirmed))
+```
+
+```{r country filter, include=FALSE}
+# select the countries we want to show
+df3 <- df2 %>% filter(str_detect(country,"China")|str_detect(country,"US")|str_detect(country,"Argentina")|str_detect(country,"Brazil")|str_detect(country,"Chile")|str_detect(country,"Chile")|str_detect(country,"Italy")|str_detect(country,"Mexico")|str_detect(country,"Peru")|str_detect(country,"Colombia"))
+```
+
+# LATAM has just `r format(round((region_tot[7,3]/sum(region_tot$totals))*100, 2), nsmall = 1)` percent of world wide cases.
+
+```{r}  
+ggplot(region_tot, aes(x=continent,y=totals)) + theme_bw()+ geom_bar(fill=rgb(0.1,0.4,0.5,0.7),stat="identity")+scale_y_continuous(labels =scales::comma_format())+labs(y = "confirmed cases", x = "continent",
+title = "Global Confirmed COVID-19 Cases")
+```
+***
+
+# LATAM compared to other countries 
+## Latin American countries remain very low in comparison to other regions of the world
+```{r first_line, fig.width=8, fig.height=6}
+ggplot(df3, aes(date,confirmed, color=country)) + geom_line(size=1) + theme_bw()+ labs(y = "confirmed cases", x = "date", title = "Time Series of Confirmed COVID-19 Cases in the World")
+```
+
+***
+
+
+# LATAM exponential growth
+```{r country filter LATAM, include=FALSE}
+# select the countries we want to show
+df4 <- df2 %>% filter(str_detect(country,"Argentina")|str_detect(country,"Brazil")|str_detect(country,"Chile")|str_detect(country,"Chile")|str_detect(country,"Mexico")|str_detect(country,"Peru")|str_detect(country,"Colombia")|str_detect(country,"Ecuador")|str_detect(country,"Venezuela")|str_detect(country,"Cuba"))
+
+df5 <- df4 %>% filter(date>=as.Date("2020-03-01"))
+march <- df5 %>% filter(date<as.Date("2020-03-23"))
+```
+
+```{r second_line, fig.width=8, fig.height=6}
+ggplot(march, aes(date,confirmed, color=country)) + geom_line(size=1) + theme_bw()+ labs(y = "confirmed cases", x = "date", title = "March Confirmed COVID-19 Cases in LATAM")
+```
+
+
+```{r data wrangling march, include=FALSE}
+latam <- transpose_header %>% select(Argentina,Brazil,Chile,Ecuador,Mexico,Colombia)
+corona<-setDT(latam, keep.rownames = TRUE)[]
+# clean and format date column
+corona$rn = sub('X', '', corona$rn)
+corona$rn = as.Date(corona$rn, format='%m.%d.%y')
+# fitler of march
+march <- corona %>% filter(rn>=as.Date("2020-03-01"))
+march <- march %>% filter(rn<as.Date("2020-03-23"))
+march_latam <- melt(march, id=c("rn"))
+# rename columns
+covid <- rename(march_latam, date = rn,country = variable, confirmed = value )
+covid$confirmed = as.numeric(as.character((covid$confirmed)))
+covid$country = as.character(covid$country)
+```
+
+
+```{r include=FALSE}
+#ggplot(covid, aes(date,confirmed, color=country)) + geom_line() + theme_classic()+ labs(y = "confirmed cases", x = "date", title = "March Confirmed COVID-19 Cases in LATAM")
+
+#ggplot(covid, aes(date,confirmed, color=country)) + geom_line(size=1, alpha=0.8) + theme_classic()+ labs(y = "confirmed cases", x = "date", title = "March Confirmed COVID-19 Cases in LATAM")
+
+```
+
