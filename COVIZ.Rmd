@@ -90,7 +90,7 @@ ggplot(df3, aes(date,confirmed, color=country)) + geom_line(size=1) + theme_bw()
 ***
 
 
-# LATAM exponential growth
+# LATAM exponential growth in the month of March
 ```{r country filter LATAM, include=FALSE}
 # select the countries we want to show
 df4 <- df2 %>% filter(str_detect(country,"Argentina")|str_detect(country,"Brazil")|str_detect(country,"Chile")|str_detect(country,"Chile")|str_detect(country,"Mexico")|str_detect(country,"Peru")|str_detect(country,"Colombia")|str_detect(country,"Ecuador")|str_detect(country,"Venezuela")|str_detect(country,"Cuba"))
